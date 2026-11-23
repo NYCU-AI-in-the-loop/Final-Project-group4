@@ -19,3 +19,7 @@
 ## 2026-11-23 — Mock LLM mode via `IMPACTMAP_MOCK=1`
 **What:** The env variable replaces only the AI step with a fixed sample; everything else uses real repo data. Off by default, so normal behavior is unchanged.
 **Why:** Lets people without an OpenAI key see the results page. Typing `mock = true` felt odd and Streamlit rejects `--mock`, so we used an env variable.
+
+## 2026-11-23 — Filter secrets before repo content goes to the LLM
+**What:** `impactmap/safety.py` skips secrets files (`.env*`, keys, credentials; `.env.example` allowed) and replaces key-like strings with `[REDACTED]` before content is sent to the AI. Paths are not filtered.
+**Why:** We are starting to send file contents, and people do commit secrets (the demo repo commits `.env`). Rejected: an external scanner (extra dependency). Led by bbbguji.

@@ -87,3 +87,16 @@ Checked: runs in mock mode without errors; colors not checked by eye yet.
 "the content in file column of Affected files table is too long for user, turn it into a copyable text(maybe show icon at the right side when hovering?)"
 → table drawn as HTML (`st.html`): file name + dim folder, copy icon on row hover. Streamlit strips `<svg>`, so the icon is CSS.
 Checked: hover + copy tested in Chrome (light/dark) in mock mode.
+
+---
+
+## 2026-11-23 — Secret filter before sending repo content to the LLM `new feature`
+
+**Who:** bbbguji · **Tool / model:** Claude Code, Claude Opus 5.5 · branch `feat/sensitive-filter` · **Related:** DECISIONS.md 2026-11-23 (filter secrets)
+
+1. "閱讀專題要求與 repo……我負責的是『現在僅用檔名分析，應該要包含到讀檔案 repo (/root, 但要排除機敏檔案)』……仔細思考後和我討論目前做法可不可行、有哪些地方可以改進" → AI proposed a plan: root/sub-dir docs + per-directory index cached outside the target repo, keyed by git SHAs, and a secret filter first; split into several small PRs.
+2. "粒度用目錄層級、LLM 摘要明確觸發、用方案B……開始著手處理PR1" → `impactmap/safety.py`, wired into the README read in `analyze.py`, `tests/test_safety.py`.
+3. "DECISIONS.md再稍微精簡一點，之後再次檢查有沒衝突和錯誤後發出pr" → re-check found a bug: the `PASSWORD=...` rule also hid ordinary code (`password_hash = get_password_hash(password)`) in 19 of 252 files of the demo repo. Fixed: the value must be one literal ending the line, and dotted names (object attributes) are skipped → 0 false positives; added `.envrc`.
+
+**Kept / changed:** kept the AI's module and tests; fake keys in tests are built by string concatenation so the repo never contains a real-looking key (push protection). Paths are not filtered, only contents.
+**Checked:** 41 tests pass (8 old + 33 new). On the default repo: `.env` and `frontend/.env` are skipped, and no source/doc file has a redaction (false positives 19 → 0 after the fix). CLI in mock mode unchanged.
