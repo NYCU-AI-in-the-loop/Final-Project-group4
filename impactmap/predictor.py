@@ -8,6 +8,8 @@ import os
 import re
 from dataclasses import dataclass, field
 
+from . import mock
+
 SKIP = re.compile(r"(^|/)(node_modules|dist|build|vendor|\.git)/|\.(png|jpe?g|gif|svg|ico|pdf|lock|min\.js|map)$"
                   r"|(^|/)(package-lock\.json|yarn\.lock|pnpm-lock\.yaml|poetry\.lock|uv\.lock)$")
 MAX_PATHS = 2000
@@ -33,7 +35,7 @@ class Prediction:
     path: str
     reason: str
     confidence: float
-    source: str  # "ai" or "keyword"
+    source: str  # "ai", "mock", or "keyword"
 
 
 @dataclass
@@ -53,6 +55,15 @@ def check_description(description):
 def predict(description, files, readme="", client=None, model=None):
     description = check_description(description)
     candidates = [f for f in files if not SKIP.search(f)][:MAX_PATHS]
+    if client is None and mock.enabled():
+        try:
+            result = _predict_llm(description, candidates, readme, mock.client, model, source="mock")
+        except ValueError:  # none of the mock paths exist in this repository
+            result = predict_keywords(description, candidates)
+            result.warnings.insert(0, mock.OTHER_REPO_WARNING)
+            return result
+        result.warnings.insert(0, mock.WARNING)
+        return result
     try:
         return _predict_llm(description, candidates, readme, client, model)
     except OffTopic:
@@ -68,7 +79,7 @@ class OffTopic(ValueError):
     pass
 
 
-def _predict_llm(description, candidates, readme, client, model):
+def _predict_llm(description, candidates, readme, client, model, source="ai"):
     if client is None:
         from openai import OpenAI
         client = OpenAI()  # reads OPENAI_API_KEY
@@ -90,7 +101,7 @@ def _predict_llm(description, candidates, readme, client, model):
         path = str(item.get("path", "")).strip().lstrip("./")
         if path in known:
             conf = min(max(float(item.get("confidence", 0.5)), 0.0), 1.0)
-            preds.append(Prediction(path, str(item.get("reason", "")), conf, "ai"))
+            preds.append(Prediction(path, str(item.get("reason", "")), conf, source))
         elif path:
             invented.append(path)
     warnings = []
@@ -99,7 +110,7 @@ def _predict_llm(description, candidates, readme, client, model):
                         + ", ".join(invented[:5]))
     if not preds:
         raise ValueError("AI returned no usable file paths")
-    return PredictResult(preds, "ai", warnings)
+    return PredictResult(preds, source, warnings)
 
 
 def predict_keywords(description, files, limit=10):

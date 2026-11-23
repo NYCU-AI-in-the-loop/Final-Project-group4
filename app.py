@@ -1,5 +1,6 @@
 """Streamlit UI: describe a planned change, see which files and teammates it affects."""
-from pathlib import Path
+from html import escape
+from pathlib import Path, PurePosixPath
 
 import streamlit as st
 from dotenv import load_dotenv
@@ -25,6 +26,91 @@ def load_repo(text):
 
 
 RISK_COLOR = {"high": "#f4a6a6", "medium": "#f7d794", "low": "#d5e8d4"}
+# Affected files table, drawn as HTML so the risk word looks highlighted with a marker and
+# each file path gets a copy button on hover. Every value is HTML-escaped (paths, names and
+# branch names come from other people's repositories).
+TABLE_CSS = """
+<style>
+.im-wrap { overflow-x: auto; }
+.im-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+.im-table th, .im-table td { padding: 0.45rem 0.6rem; text-align: left; vertical-align: top;
+  border-bottom: 1px solid rgba(128, 128, 128, 0.25); }
+.im-table th { font-weight: 600; opacity: 0.75; white-space: nowrap; }
+.im-risk { font-weight: 700; padding: 0.05rem 0.35rem; border-radius: 0.2rem; }
+/* Opaque marker + darker text of the same hue, so it reads the same in light and dark theme. */
+.im-risk.high { background: #ffc9c9; color: #b71c1c; }
+.im-risk.medium { background: #fff3a3; color: #7a5d00; }
+.im-risk.low { background: #c8f2d4; color: #146c2e; }
+.im-file { display: flex; align-items: flex-start; gap: 0.4rem; min-width: 12rem; max-width: 22rem; }
+.im-file-text { flex: 1; min-width: 0; }
+.im-name { font-weight: 600; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.im-dir { font-size: 0.75rem; opacity: 0.6; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.im-copy { visibility: hidden; flex: none; margin-left: auto; border: 0; background: none; padding: 0.1rem; cursor: pointer;
+  color: inherit; opacity: 0.6; line-height: 0; }
+.im-copy:hover { opacity: 1; }
+.im-table tr:hover .im-copy, .im-copy:focus-visible { visibility: visible; }
+.im-copy .icon { position: relative; display: inline-block; width: 14px; height: 14px; }
+.im-copy .icon::before, .im-copy .icon::after { content: ""; position: absolute; border: 1.5px solid currentColor;
+  border-radius: 2px; box-sizing: border-box; }
+.im-copy .icon::before { left: 0; top: 0; width: 9px; height: 9px; border-right: 0; border-bottom: 0; }
+.im-copy .icon::after { left: 4px; top: 4px; width: 10px; height: 10px; }
+.im-copy .done { display: none; font-size: 14px; line-height: 14px; font-weight: 700; }
+.im-copy.copied .icon { display: none; }
+.im-copy.copied .done { display: inline; }
+</style>
+"""
+# Plain spans drawn with CSS: Streamlit's HTML sanitizer removes <svg>.
+COPY_ICON = '<span class="icon"></span><span class="done">✓</span>'
+COPY_JS = """
+<script>
+if (!window.imCopyReady) {
+  window.imCopyReady = true;
+  document.addEventListener("click", (e) => {
+    const btn = e.target.closest(".im-copy");
+    if (!btn) return;
+    const text = btn.dataset.path;
+    const done = () => { btn.classList.add("copied"); setTimeout(() => btn.classList.remove("copied"), 1200); };
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(text).then(done);
+    } else {  // e.g. opened over plain http on another machine
+      const t = document.createElement("textarea");
+      t.value = text; document.body.appendChild(t); t.select();
+      document.execCommand("copy"); t.remove(); done();
+    }
+  });
+}
+</script>
+"""
+
+
+def file_cell(path):
+    p = PurePosixPath(path)
+    folder = f"{p.parent}/" if str(p.parent) != "." else ""
+    full = escape(path)
+    return (f'<div class="im-file" title="{full}"><div class="im-file-text">'
+            f'<div class="im-name">{escape(p.name)}</div><div class="im-dir">{escape(folder)}</div></div>'
+            f'<button class="im-copy" type="button" data-path="{full}" title="Copy path" '
+            f'aria-label="Copy path {full}">{COPY_ICON}</button></div>')
+
+
+def affected_table(rows):
+    head = ["risk", "file", "why", "confidence", "from", "in-flight branches", "recent editors", "CODEOWNERS"]
+    body = []
+    for r in rows:
+        cells = [
+            f'<span class="im-risk {r.risk}">{r.risk}</span>',
+            file_cell(r.path),
+            escape(r.reason),
+            f"{r.confidence:.2f}",
+            escape(r.source),
+            escape(", ".join(f"{b} ({a})" for b, a in r.branches)),
+            escape(", ".join(f"{a} ({n})" for a, n in r.recent)),
+            escape(", ".join(r.owners)),
+        ]
+        body.append("<tr>" + "".join(f"<td>{c}</td>" for c in cells) + "</tr>")
+    return (TABLE_CSS + '<div class="im-wrap"><table class="im-table"><thead><tr>'
+            + "".join(f"<th>{h}</th>" for h in head) + "</tr></thead><tbody>"
+            + "".join(body) + "</tbody></table></div>" + COPY_JS)
 
 
 def to_dot(report):
@@ -78,7 +164,8 @@ if st.button("Analyze", type="primary"):
 
     for w in repo_warnings + report.warnings:
         st.warning(w)
-    label = "AI (OpenAI)" if report.source == "ai" else "keyword matching (not AI)"
+    label = {"ai": "AI (OpenAI)", "mock": "MOCK data (AI not called)"}.get(
+        report.source, "keyword matching (not AI)")
     st.info(f"Predicted files come from **{label}**. They are guesses: check them before acting.")
 
     high = [r for r in report.rows if r.risk == "high"]
@@ -89,16 +176,7 @@ if st.button("Analyze", type="primary"):
             st.markdown(f"- `{r.path}` is also being edited by {who}. Consider talking to them before you start.")
 
     st.subheader("Affected files")
-    st.dataframe([{
-        "risk": r.risk,
-        "file": r.path,
-        "why": r.reason,
-        "confidence": r.confidence,
-        "from": r.source,
-        "in-flight branches": ", ".join(f"{b} ({a})" for b, a in r.branches),
-        "recent editors": ", ".join(f"{a} ({n})" for a, n in r.recent),
-        "CODEOWNERS": ", ".join(r.owners),
-    } for r in report.rows], width="stretch", hide_index=True)
+    st.html(affected_table(report.rows), unsafe_allow_javascript=True)
 
     st.subheader("Impact map")
     st.caption("Red = someone else's unmerged branch edits it; yellow = others edited it recently; "

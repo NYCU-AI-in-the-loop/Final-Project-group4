@@ -14,7 +14,7 @@ class ImpactRow:
     kind: str            # "predicted" or "imports a predicted file"
     reason: str
     confidence: float
-    source: str          # "ai", "keyword", or "import graph"
+    source: str          # "ai", "mock", "keyword", or "import graph"
     owners: list         # from CODEOWNERS
     recent: list         # [(author, commits)] other people, last N days
     branches: list       # [(branch, author)] other people's unmerged branches touching this file

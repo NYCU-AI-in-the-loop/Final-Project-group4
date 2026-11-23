@@ -22,6 +22,8 @@ is fetched as `pr/<number>` and treated as a teammate's in-flight work (GitHub A
 needed; set `GITHUB_TOKEN` in `.env` if you hit the rate limit). For a local path, run
 `git fetch` there first so teammates' branches are visible.
 Without a working key the tool falls back to keyword matching and says so.
+Run with `IMPACTMAP_MOCK=1` (e.g. `IMPACTMAP_MOCK=1 streamlit run app.py`, or put it in `.env`) to see
+the results page without an API key: the AI step returns a fixed sample, everything else uses real repository data.
 
 ### Risk levels
 

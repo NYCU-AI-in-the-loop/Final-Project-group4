@@ -54,3 +54,36 @@ Tags: `new feature`, `main`, `summary`.
 - LLM sees file paths only, not file contents.
 - TS path aliases (`@/...`) not resolved: in the demo repo ~200 of ~260 frontend imports are missed.
 - One-hop import expansion is noisy (e.g. `models.py` pulls in 15+ low-risk files).
+
+---
+
+## 2026-11-23 — Mock LLM mode `new feature`
+
+**Who:** kiki · **Tool / model:** Claude Code, Claude Opus 5.5 · **Related:** DECISIONS.md 2026-11-23 (mock mode)
+
+1. "Read SPEC-mock-llm.md to implement mock, ask me if you're not sure about some decision." (spec deleted; decision in DECISIONS.md)
+   → `impactmap/mock.py`: fixed sample prediction, triggered by typing `mock = true`.
+2. "I think to let the user type \"mock = true\" is a bit of strange, could I just use mock mode
+   type in command? streamlit run app.py --mock?" → Streamlit rejects `--mock`, so we switched to
+   the env variable `IMPACTMAP_MOCK=1` and removed the text trigger.
+
+**Kept / changed:** kept the AI's mock module; dropped its mock tests (not worth it for a demo helper); changed the trigger (text → env variable).
+**Checked:** existing 8 tests still pass; CLI with `IMPACTMAP_MOCK=1` on the default repo shows `source: mock`.
+
+---
+
+## 2026-11-23 — Risk highlight in Affected files table `new feature`
+
+**Who:** kiki · Claude Code, Claude Opus 5.5 · branch `feat/affected-files-table-ui`
+
+"修 Affected files table，我想要他在 high medium low 的 risk 能有紅、黃、綠，我不想要改變儲存格顏色，我想要他本身像是被 highlight"
+→ switched to `st.table`, the only way to highlight the text itself (loses sort/search).
+Checked: runs in mock mode without errors; colors not checked by eye yet.
+
+## 2026-11-23 — Copyable file paths in Affected files table `new feature`
+
+**Who:** kiki · Claude Code, Claude Opus 5.5 · branch `feat/affected-files-table-ui`
+
+"the content in file column of Affected files table is too long for user, turn it into a copyable text(maybe show icon at the right side when hovering?)"
+→ table drawn as HTML (`st.html`): file name + dim folder, copy icon on row hover. Streamlit strips `<svg>`, so the icon is CSS.
+Checked: hover + copy tested in Chrome (light/dark) in mock mode.
