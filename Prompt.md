@@ -54,3 +54,18 @@ Tags: `new feature`, `main`, `summary`.
 - LLM sees file paths only, not file contents.
 - TS path aliases (`@/...`) not resolved: in the demo repo ~200 of ~260 frontend imports are missed.
 - One-hop import expansion is noisy (e.g. `models.py` pulls in 15+ low-risk files).
+
+---
+
+## 2026-11-23 — Mock LLM mode `new feature`
+
+**Who:** kiki · **Tool / model:** Claude Code, Claude Opus 5.5 · **Related:** DECISIONS.md 2026-11-23 (mock mode)
+
+1. "Read SPEC-mock-llm.md to implement mock, ask me if you're not sure about some decision." (spec deleted; decision in DECISIONS.md)
+   → `impactmap/mock.py`: fixed sample prediction, triggered by typing `mock = true`.
+2. "I think to let the user type \"mock = true\" is a bit of strange, could I just use mock mode
+   type in command? streamlit run app.py --mock?" → Streamlit rejects `--mock`, so we switched to
+   the env variable `IMPACTMAP_MOCK=1` and removed the text trigger.
+
+**Kept / changed:** kept the AI's mock module; dropped its mock tests (not worth it for a demo helper); changed the trigger (text → env variable).
+**Checked:** existing 8 tests still pass; CLI with `IMPACTMAP_MOCK=1` on the default repo shows `source: mock`.

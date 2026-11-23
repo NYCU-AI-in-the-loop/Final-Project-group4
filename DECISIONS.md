@@ -15,3 +15,7 @@
 ## 2026-11-23 — Open PRs count as in-flight work; default demo repo
 **What:** When given a GitHub URL, the tool clones it into `repos/` (gitignored) and fetches every open PR head as `pr/<number>`, attributed to the PR author's GitHub login. Default repo: https://github.com/fastapi/full-stack-fastapi-template.
 **Why:** On GitHub most teammates' work lives in PRs from forks, not in branches of the repo. The template has a Python backend and TS frontend (matches our back-end/front-end scenario) and had 12 open PRs from 10 authors on 2026-11-23; pallets/flask had only 3 open PRs from 2 authors.
+
+## 2026-11-23 — Mock LLM mode via `IMPACTMAP_MOCK=1`
+**What:** The env variable replaces only the AI step with a fixed sample; everything else uses real repo data. Off by default, so normal behavior is unchanged.
+**Why:** Lets people without an OpenAI key see the results page. Typing `mock = true` felt odd and Streamlit rejects `--mock`, so we used an env variable.

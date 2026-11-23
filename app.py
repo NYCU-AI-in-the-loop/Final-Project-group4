@@ -78,7 +78,8 @@ if st.button("Analyze", type="primary"):
 
     for w in repo_warnings + report.warnings:
         st.warning(w)
-    label = "AI (OpenAI)" if report.source == "ai" else "keyword matching (not AI)"
+    label = {"ai": "AI (OpenAI)", "mock": "MOCK data (AI not called)"}.get(
+        report.source, "keyword matching (not AI)")
     st.info(f"Predicted files come from **{label}**. They are guesses: check them before acting.")
 
     high = [r for r in report.rows if r.risk == "high"]
