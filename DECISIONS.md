@@ -3,3 +3,15 @@
 ## 2026-09-21 — Initial code steward
 **What:** vv-chang is the initial code steward for the team.
 **Why:** has experience coordinating tasks and keeping track of team progress.
+
+## 2026-11-23 — Prototype stack: Python, Streamlit, OpenAI
+**What:** The first prototype ("Impact Map") is a Python package (`impactmap/`) with a Streamlit UI (`app.py`) and a CLI. The AI step calls the OpenAI API (key in `.env`, model configurable with `OPENAI_MODEL`, default `gpt-4o-mini`) and must return JSON.
+**Why:** Fastest way to get the main task running end to end for the Week 12 cross-team review; reviewers can use a web page without setup beyond `pip install`. Prompt log: Prompt.md (2026-11-23).
+
+## 2026-11-23 — AI suggests, git facts decide the warnings; never block
+**What:** The LLM only predicts which files a planned change will touch (with a reason and confidence). Who is affected comes from git: other people's unmerged branches/open PRs, recent authors (90 days), CODEOWNERS, plus files that import a predicted file (one hop). Paths the LLM invents are dropped and reported. If the LLM fails, we fall back to keyword matching on paths and label it "not AI"; empty or off-topic input is rejected with a message.
+**Why:** Follows our CP1 human-AI boundary (AI flags, humans decide) and interview findings: warnings must name affected teammates and must not slow down parallel work. One-hop imports cover "different files, same module", which GitHub's conflict detection misses.
+
+## 2026-11-23 — Open PRs count as in-flight work; default demo repo
+**What:** When given a GitHub URL, the tool clones it into `repos/` (gitignored) and fetches every open PR head as `pr/<number>`, attributed to the PR author's GitHub login. Default repo: https://github.com/fastapi/full-stack-fastapi-template.
+**Why:** On GitHub most teammates' work lives in PRs from forks, not in branches of the repo. The template has a Python backend and TS frontend (matches our back-end/front-end scenario) and had 12 open PRs from 10 authors on 2026-11-23; pallets/flask had only 3 open PRs from 2 authors.
