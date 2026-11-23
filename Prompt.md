@@ -79,3 +79,11 @@ Tags: `new feature`, `main`, `summary`.
 "修 Affected files table，我想要他在 high medium low 的 risk 能有紅、黃、綠，我不想要改變儲存格顏色，我想要他本身像是被 highlight"
 → switched to `st.table`, the only way to highlight the text itself (loses sort/search).
 Checked: runs in mock mode without errors; colors not checked by eye yet.
+
+## 2026-11-23 — Copyable file paths in Affected files table `new feature`
+
+**Who:** kiki · Claude Code, Claude Opus 5.5 · branch `feat/affected-files-table-ui`
+
+"the content in file column of Affected files table is too long for user, turn it into a copyable text(maybe show icon at the right side when hovering?)"
+→ table drawn as HTML (`st.html`): file name + dim folder, copy icon on row hover. Streamlit strips `<svg>`, so the icon is CSS.
+Checked: hover + copy tested in Chrome (light/dark) in mock mode.
