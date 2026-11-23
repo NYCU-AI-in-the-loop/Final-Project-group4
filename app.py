@@ -1,6 +1,8 @@
 """Streamlit UI: describe a planned change, see which files and teammates it affects."""
 from pathlib import Path
 
+import re
+
 import streamlit as st
 from dotenv import load_dotenv
 
@@ -25,6 +27,13 @@ def load_repo(text):
 
 
 RISK_COLOR = {"high": "#f4a6a6", "medium": "#f7d794", "low": "#d5e8d4"}
+# Marker-pen highlight with darker text of the same color behind the risk word (Streamlit badges).
+RISK_MARKER = {"high": "red", "medium": "yellow", "low": "green"}
+
+
+def md(text):
+    """Escape text so st.table shows it literally instead of as Markdown."""
+    return re.sub(r"([\\`*_{}\[\]()<>#+\-.!|~:])", r"\\\1", str(text))
 
 
 def to_dot(report):
@@ -90,16 +99,16 @@ if st.button("Analyze", type="primary"):
             st.markdown(f"- `{r.path}` is also being edited by {who}. Consider talking to them before you start.")
 
     st.subheader("Affected files")
-    st.dataframe([{
-        "risk": r.risk,
-        "file": r.path,
-        "why": r.reason,
-        "confidence": r.confidence,
-        "from": r.source,
-        "in-flight branches": ", ".join(f"{b} ({a})" for b, a in r.branches),
-        "recent editors": ", ".join(f"{a} ({n})" for a, n in r.recent),
-        "CODEOWNERS": ", ".join(r.owners),
-    } for r in report.rows], width="stretch", hide_index=True)
+    st.table([{
+        "risk": f":{RISK_MARKER[r.risk]}-badge[**{r.risk}**]",
+        "file": f"`{r.path}`",
+        "why": md(r.reason),
+        "confidence": f"{r.confidence:.2f}",
+        "from": md(r.source),
+        "in-flight branches": md(", ".join(f"{b} ({a})" for b, a in r.branches)),
+        "recent editors": md(", ".join(f"{a} ({n})" for a, n in r.recent)),
+        "CODEOWNERS": md(", ".join(r.owners)),
+    } for r in report.rows], hide_index=True)
 
     st.subheader("Impact map")
     st.caption("Red = someone else's unmerged branch edits it; yellow = others edited it recently; "

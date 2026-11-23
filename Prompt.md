@@ -69,3 +69,13 @@ Tags: `new feature`, `main`, `summary`.
 
 **Kept / changed:** kept the AI's mock module; dropped its mock tests (not worth it for a demo helper); changed the trigger (text → env variable).
 **Checked:** existing 8 tests still pass; CLI with `IMPACTMAP_MOCK=1` on the default repo shows `source: mock`.
+
+---
+
+## 2026-11-23 — Risk highlight in Affected files table `new feature`
+
+**Who:** kiki · Claude Code, Claude Opus 5.5 · branch `feat/affected-files-table-ui`
+
+"修 Affected files table，我想要他在 high medium low 的 risk 能有紅、黃、綠，我不想要改變儲存格顏色，我想要他本身像是被 highlight"
+→ switched to `st.table`, the only way to highlight the text itself (loses sort/search).
+Checked: runs in mock mode without errors; colors not checked by eye yet.
