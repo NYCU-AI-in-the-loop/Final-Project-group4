@@ -94,15 +94,17 @@ def test_ui_selection_and_result(monkeypatch):
     monkeypatch.setattr(module, 'analyze', fake_analyze)
     monkeypatch.setenv('ANTHROPIC_API_KEY', 'test-placeholder')
     monkeypatch.setenv('IMPACTMAP_MOCK', '0')
+    monkeypatch.setenv('OPENAI_API_KEY', 'test-placeholder')
     app = AppTest.from_file('../app.py').run()
     assert not app.exception
-    app.selectbox[0].select('claude')
+    app.session_state['model_picker'] = {'provider': 'claude'}
     app.text_area[0].input('Add authentication')
     app.button[0].click().run()
     assert not app.exception
     assert calls[0]['provider'] == 'claude'
     assert 'claude-haiku-5-5' in app.info[0].value
-    app.selectbox[0].select('openai').run()
+    app.session_state['model_picker'] = {'provider': 'openai'}
+    app.run()
     assert len(calls) == 1
     assert 'claude-haiku-5-5' in app.info[0].value
 
@@ -121,22 +123,86 @@ def test_openai_request_uses_selected_model():
     assert 'temperature' not in sent
 
 
-def test_ui_missing_key_and_mock(monkeypatch):
+@pytest.mark.parametrize('key_value', [None, '', '   '])
+def test_ui_missing_key_and_mock(monkeypatch, key_value):
     import dotenv
     from impactmap import github
     from streamlit.testing.v1 import AppTest
     monkeypatch.setattr(dotenv, 'load_dotenv', lambda *a, **k: None)
     monkeypatch.setattr(github, 'prepare', lambda url: ('.', [], []))
+    if key_value is not None:
+        monkeypatch.setenv('ANTHROPIC_API_KEY', key_value)
     app = AppTest.from_file('../app.py').run()
-    app.selectbox[0].select('claude')
-    app.text_area[0].input('Update auth flow')
-    app.button[0].click().run()
     assert not app.exception
-    assert 'ANTHROPIC_API_KEY' in app.error[0].value
+    assert app.button[0].disabled
+    assert all(o['disabled'] for o in picker_data(app)['options'])
+    assert not picker_data(app)['disabled']
+    monkeypatch.setenv('OPENAI_API_KEY', 'test-placeholder')
+    app.run()
+    assert not app.button[0].disabled
+    assert [o['value'] for o in picker_data(app)['options'] if not o['disabled']] == ['openai']
+    assert picker_data(app)['selected'] == 'openai'
     monkeypatch.setenv('IMPACTMAP_MOCK', '1')
     app.run()
-    assert app.selectbox[0].disabled
+    assert picker_data(app)['disabled']
+    assert not app.button[0].disabled
+    assert [o['label'] for o in picker_data(app)['options']] == ['OpenAI', 'Claude']
     assert any('MOCK mode' in c.value for c in app.caption)
+    assert not any('Missing API key' in w.value for w in app.warning)
+
+
+@pytest.mark.parametrize('key_value', [None, '', '   '])
+def test_ui_missing_keys_visible_before_repository_load(monkeypatch, key_value):
+    import dotenv
+    from impactmap import github
+    from streamlit.testing.v1 import AppTest
+
+    monkeypatch.setattr(dotenv, 'load_dotenv', lambda *a, **k: None)
+    if key_value is not None:
+        for name in ('OPENAI_API_KEY', 'ANTHROPIC_API_KEY'):
+            monkeypatch.setenv(name, key_value)
+
+    def unavailable_repo(url):
+        raise ValueError('Repository unavailable')
+
+    import streamlit as st
+    st.cache_data.clear()
+    monkeypatch.setattr(github, 'prepare', unavailable_repo)
+    app = AppTest.from_file('../app.py').run()
+    assert not app.exception
+    warning = next(w.value for w in app.warning if 'Missing API key' in w.value)
+    assert 'OPENAI_API_KEY' in warning
+    assert 'ANTHROPIC_API_KEY' in warning
+    assert '.env' in warning
+    assert 'Repository unavailable' in app.error[0].value
+
+
+@pytest.mark.parametrize('provider,key,label,missing_label', [
+    ('openai', 'OPENAI_API_KEY', 'OpenAI', 'Claude'),
+    ('claude', 'ANTHROPIC_API_KEY', 'Claude', 'OpenAI'),
+])
+def test_ui_only_reports_unconfigured_key(monkeypatch, provider, key, label, missing_label):
+    import dotenv
+    from impactmap import github
+    from streamlit.testing.v1 import AppTest
+
+    monkeypatch.setattr(dotenv, 'load_dotenv', lambda *a, **k: None)
+    monkeypatch.setattr(github, 'prepare', lambda url: ('.', [], []))
+    monkeypatch.setenv(key, 'test-placeholder')
+    app = AppTest.from_file('../app.py').run()
+    assert not app.exception
+    assert not any('Missing API key' in w.value for w in app.warning)
+    options = picker_data(app)['options']
+    assert any(o['label'] == label and not o['disabled'] for o in options)
+    assert any(o['label'] == f'{missing_label} (Missing API key)' and o['disabled'] for o in options)
+    assert picker_data(app)['selected'] == provider
+    assert not app.button[0].disabled
+    monkeypatch.setenv('OPENAI_API_KEY', 'test-placeholder')
+    monkeypatch.setenv('ANTHROPIC_API_KEY', 'test-placeholder')
+    app.run()
+    assert not any('Missing API key' in w.value for w in app.warning)
+    assert [o['label'] for o in picker_data(app)['options']] == ['OpenAI', 'Claude']
+    assert not app.button[0].disabled
 
 
 @pytest.mark.parametrize('configured_provider', ['gemini', '', '   '])
@@ -161,7 +227,7 @@ def test_ui_invalid_provider_defaults_to_openai(monkeypatch, configured_provider
     monkeypatch.setattr(module, 'analyze', fake_analyze)
     app = AppTest.from_file('../app.py').run()
     assert not app.exception
-    assert app.selectbox[0].value == 'openai'
+    assert picker_data(app)['selected'] == 'openai'
     assert any('Invalid AI_PROVIDER' in w.value for w in app.warning)
 
     app.text_area[0].input('Update auth flow')
@@ -169,7 +235,11 @@ def test_ui_invalid_provider_defaults_to_openai(monkeypatch, configured_provider
     assert not app.exception
     assert calls == ['openai']
 
-    app.selectbox[0].select('claude')
+    app.session_state['model_picker'] = {'provider': 'claude'}
     app.button[0].click().run()
     assert not app.exception
     assert calls == ['openai', 'claude']
+
+
+def picker_data(app):
+    return json.loads(app.get('bidi_component')[0].proto.json)

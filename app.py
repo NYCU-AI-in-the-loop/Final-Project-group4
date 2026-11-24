@@ -10,6 +10,7 @@ import os
 from impactmap import github, repo_scan, mock
 from impactmap.analyze import analyze
 from impactmap.predictor import OffTopic, resolve_model, KEY_NAMES
+from impactmap.model_picker import model_picker
 
 load_dotenv(Path(__file__).resolve().parent / ".env")
 
@@ -140,6 +141,15 @@ st.title("Impact Map")
 st.caption("Describe a change before you code it. See which files it likely touches "
            "and which teammates are working there.")
 
+available_providers = [p for p, name in KEY_NAMES.items() if os.getenv(name, "").strip()]
+if not mock.enabled():
+    if not available_providers:
+        st.warning(
+            "Missing API key: set either `OPENAI_API_KEY` or `ANTHROPIC_API_KEY`. "
+            "Set the key for the model you want to use in the project root `.env` "
+            "(see `.env.example`), then restart Streamlit."
+        )
+
 repo_input = st.text_input("GitHub URL or local repository path", value=DEFAULT_REPO)
 try:
     repo, prs, repo_warnings = load_repo(repo_input)
@@ -158,24 +168,48 @@ st.caption(f"{len(prs)} open PRs loaded as in-flight work." if prs else
 with st.form("describe", border=False):
     description = st.text_area("What do you plan to change?",
                                placeholder="e.g. Add password reset by email to the login page")
-    button_col, model_col = st.columns([1, 1.25], width=220, vertical_alignment="center")
+    button_col, model_col = st.columns([1, 2.5], width=400, vertical_alignment="center")
     try:
         default_provider, _ = resolve_model()
     except ValueError:
         default_provider = "openai"
         st.warning("Invalid AI_PROVIDER configuration. Use openai or claude; defaulting to OpenAI.")
-    provider = model_col.selectbox("Model", ["openai", "claude"],
-                                   index=["openai", "claude"].index(default_provider),
-                                   format_func=lambda p: "OpenAI" if p == "openai" else "Claude",
-                                   disabled=mock.enabled(), key="provider", label_visibility="collapsed")
-    submitted = button_col.form_submit_button("Analyze", type="primary")
+    if not mock.enabled() and available_providers and default_provider not in available_providers:
+        default_provider = available_providers[0]
+    model_labels = {"openai": "OpenAI", "claude": "Claude"}
+    selectable_providers = list(KEY_NAMES) if mock.enabled() else available_providers
+    selected_provider = st.session_state.get("model_picker", {}).get("provider")
+    if selected_provider not in selectable_providers:
+        selected_provider = default_provider if selectable_providers else None
+    with model_col:
+        selection = model_picker(
+            key="model_picker",
+            data={
+                "selected": selected_provider,
+                "disabled": mock.enabled(),
+                "options": [
+                    {"value": p,
+                     "label": label + (" (Missing API key)" if p not in selectable_providers else ""),
+                     "disabled": p not in selectable_providers}
+                    for p, label in model_labels.items()
+                ],
+            },
+            default={"provider": selected_provider},
+            on_provider_change=lambda: None,
+        )
+    provider = selection.provider
+    if provider not in selectable_providers:
+        provider = selected_provider
+    submitted = button_col.form_submit_button("Analyze", type="primary",
+                                              disabled=not mock.enabled() and not available_providers)
     if mock.enabled():
         st.caption("MOCK mode: fixed sample data; no model API is called. Set IMPACTMAP_MOCK=0 to use AI.")
 
 if submitted:
     provider, model = resolve_model(provider)
-    if not mock.enabled() and not os.getenv(KEY_NAMES[provider]):
-        st.error(f"Set {KEY_NAMES[provider]} in the project root .env, then restart Streamlit.")
+    if not mock.enabled() and not os.getenv(KEY_NAMES[provider], "").strip():
+        st.error(f"Missing API key: {KEY_NAMES[provider]}. "
+                 "Set it in the project root .env, then restart Streamlit.")
         st.stop()
     try:
         with st.spinner("Asking the AI and reading git history..."):
