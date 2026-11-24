@@ -8,3 +8,10 @@ AI involvement (required for every PR): [One sentence: "None", or which tool/mod
 Prompt log: [Prompt.md entry date/title, or "n/a"]
 Alternative rejected: [optional]
 Led by: [name]
+
+## How I checked it
+- [ ] I read every line of this change myself and can explain it without the AI
+- [ ] Tests added or updated, and all tests pass locally (and in CI, if we have it)
+- [ ] Prompt changed? Before/after results from our prompt test suite are below
+- Other checks (manual tries, screenshots):
+
