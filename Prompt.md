@@ -100,3 +100,14 @@ Checked: hover + copy tested in Chrome (light/dark) in mock mode.
 
 **Kept / changed:** kept the AI's module and tests; fake keys in tests are built by string concatenation so the repo never contains a real-looking key (push protection). Paths are not filtered, only contents.
 **Checked:** 41 tests pass (8 old + 33 new). On the default repo: `.env` and `frontend/.env` are skipped, and no source/doc file has a redaction (false positives 19 → 0 after the fix). CLI in mock mode unchanged.
+
+---
+
+## 2026-11-24 — Move sidebar settings under the title `UI`
+
+**Who:** kiki · Claude Code, Claude Opus 5.5 · branch `feat/settings-under-title` · **Related:** DECISIONS.md 2026-11-24
+
+"want to remove side bar, and let the content in side bar move to under "Impact Map" heading."
+"…there would be a long delay while opening and closing the side bar after analyses… so I think remove it would be a better choice" (reason, added to DECISIONS.md)
+→ AI asked which heading (page title vs. graph subheader), layout, expander or not; agreed: page title, repo full width + 3 columns, all visible.
+Checked: tests pass; app starts headless in mock mode.

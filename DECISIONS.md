@@ -23,3 +23,7 @@
 ## 2026-11-23 — Filter secrets before repo content goes to the LLM
 **What:** `impactmap/safety.py` skips secrets files (`.env*`, keys, credentials; `.env.example` allowed) and replaces key-like strings with `[REDACTED]` before content is sent to the AI. Paths are not filtered.
 **Why:** We are starting to send file contents, and people do commit secrets (the demo repo commits `.env`). Rejected: an external scanner (extra dependency). Led by bbbguji.
+
+## 2026-11-24 — Settings under the title, no sidebar
+**What:** The repo, name, base-branch and day-window inputs move from the sidebar to the main page, between the title caption and the description box (repo on its own row, the other three side by side).
+**Why:** After an analysis, opening or closing the sidebar lagged for a long time, probably because the browser has to lay out the large results (table and graph) again at the new width. Without a sidebar there is nothing to toggle, and the settings sit next to the description, so first-time reviewers don't miss them.

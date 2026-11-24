@@ -138,18 +138,18 @@ st.title("Impact Map")
 st.caption("Describe a change before you code it. See which files it likely touches "
            "and which teammates are working there.")
 
-with st.sidebar:
-    repo_input = st.text_input("GitHub URL or local repository path", value=DEFAULT_REPO)
-    try:
-        repo, prs, repo_warnings = load_repo(repo_input)
-    except Exception as e:
-        st.error(f"Could not open repository: {e}")
-        st.stop()
-    me = st.text_input("Your name or GitHub login (excluded from warnings)")
-    base = st.text_input("Base branch", value=repo_scan.default_base(repo))
-    days = st.number_input("Recent-author window (days)", 7, 365, 90)
-    st.caption(f"{len(prs)} open PRs loaded as in-flight work." if prs else
-               "Local path: run `git fetch` there first so teammates' branches are up to date.")
+repo_input = st.text_input("GitHub URL or local repository path", value=DEFAULT_REPO)
+try:
+    repo, prs, repo_warnings = load_repo(repo_input)
+except Exception as e:
+    st.error(f"Could not open repository: {e}")
+    st.stop()
+col_me, col_base, col_days = st.columns(3)
+me = col_me.text_input("Your name or GitHub login (excluded from warnings)")
+base = col_base.text_input("Base branch", value=repo_scan.default_base(repo))
+days = col_days.number_input("Recent-author window (days)", 7, 365, 90)
+st.caption(f"{len(prs)} open PRs loaded as in-flight work." if prs else
+           "Local path: run `git fetch` there first so teammates' branches are up to date.")
 
 description = st.text_area("What do you plan to change?",
                            placeholder="e.g. Add password reset by email to the login page")
