@@ -26,6 +26,8 @@ def main():
     for w in report.warnings:
         print("WARNING:", w)
     print(f"source: {report.source}")
+    skipped = f" (left out, size limit: {', '.join(report.context_skipped)})" if report.context_skipped else ""
+    print("docs sent to the AI: " + (", ".join(report.context_files) or "none") + skipped)
     for r in report.rows:
         branches = ", ".join(f"{b} ({a})" for b, a in r.branches)
         print(f"[{r.risk:6}] {r.confidence:.2f} {r.path}  -- {r.reason}"
