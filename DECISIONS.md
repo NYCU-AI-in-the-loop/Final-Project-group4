@@ -35,3 +35,9 @@
 ## 2026-11-24 — Code steward: bbbguji for PR #10
 **What:** bbbguji was code steward for PR #10 (kiki, settings under the title): ran it locally in mock mode with pytest (41 passed), approved with one non-blocking suggestion (the long "Your name…" label wraps and misaligns the three inputs; shorten it and move the note into `help=`), and merged it.
 **Handoff:** the label suggestion is left as a follow-up for kiki.
+
+## 2026-11-24 — OpenAI / Claude model selection
+**What:** Added a compact model-provider selector beside Analyze and `--provider` / `--model` options to the CLI. OpenAI and Claude use separate API integrations with shared prediction validation and the existing git-based impact analysis. `AI_PROVIDER` sets the default provider; `OPENAI_MODEL` and `ANTHROPIC_MODEL` configure its model. UI selection takes precedence over the default, and reports retain the provider/model that produced them. Selecting a provider alone makes no API request. Mock mode disables the selector and continues to use fixed predictions without calling either API.
+**Why:** Let users choose either provider without duplicating conflict detection, ownership lookup, dependency analysis, or report rendering. Keeping the original provider/model on each report prevents a selection change from relabeling an earlier result.
+**Configuration handling:** Invalid or blank `AI_PROVIDER` settings show a warning and default the UI selection to OpenAI; users can still select Claude and run analysis.
+**Known follow-up:** The UI currently stops analysis when the selected provider's API key is missing, before the predictor's keyword fallback can run. This conflicts with the earlier "never block" decision and remains unresolved; the configuration fix above only handles invalid `AI_PROVIDER` settings.

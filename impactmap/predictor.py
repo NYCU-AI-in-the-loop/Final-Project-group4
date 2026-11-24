@@ -3,6 +3,7 @@
 If the LLM is unavailable or returns something unusable, fall back to keyword
 matching on file paths and say so, so the user is never silently given non-AI output.
 """
+import math
 import json
 import os
 import re
@@ -14,6 +15,18 @@ SKIP = re.compile(r"(^|/)(node_modules|dist|build|vendor|\.git)/|\.(png|jpe?g|gi
                   r"|(^|/)(package-lock\.json|yarn\.lock|pnpm-lock\.yaml|poetry\.lock|uv\.lock)$")
 MAX_PATHS = 2000
 MAX_FILES = 15
+MAX_INPUT_CHARS = 60000
+DEFAULT_MODELS = {"openai": "gpt-6-luna", "claude": "claude-haiku-5-5"}
+KEY_NAMES = {"openai": "OPENAI_API_KEY", "claude": "ANTHROPIC_API_KEY"}
+
+
+def resolve_model(provider=None, model=None):
+    provider = (provider or os.getenv("AI_PROVIDER", "openai")).strip().lower()
+    if provider not in DEFAULT_MODELS:
+        raise ValueError("AI_PROVIDER must be openai or claude")
+    env_name = "OPENAI_MODEL" if provider == "openai" else "ANTHROPIC_MODEL"
+    return provider, model or os.getenv(env_name) or DEFAULT_MODELS[provider]
+
 
 SYSTEM_PROMPT = f"""You help a developer plan a change in a git repository before they write code.
 Given the repository's file list and a description of the planned change, predict which EXISTING
@@ -44,6 +57,8 @@ class PredictResult:
     files: list
     source: str
     warnings: list = field(default_factory=list)
+    provider: str = ""
+    model: str = ""
 
 
 def check_description(description):
@@ -53,8 +68,9 @@ def check_description(description):
     return text
 
 
-def predict(description, files, readme="", client=None, model=None):
+def predict(description, files, readme="", client=None, model=None, provider=None):
     description = check_description(description)
+    provider, model = resolve_model(provider, model)
     candidates = [f for f in files if not SKIP.search(f)][:MAX_PATHS]
     if client is None and mock.enabled():
         try:
@@ -66,13 +82,18 @@ def predict(description, files, readme="", client=None, model=None):
         result.warnings.insert(0, mock.WARNING)
         return result
     try:
-        return _predict_llm(description, candidates, readme, client, model)
+        return _predict_llm(description, candidates, readme, client, model, provider=provider)
     except OffTopic:
         raise
     except Exception as e:  # network, auth, bad JSON, missing key...
         result = predict_keywords(description, candidates)
-        result.warnings.insert(0, f"AI prediction unavailable ({type(e).__name__}: {e}). "
+        status = getattr(e, "status_code", None)
+        detail = {401: "Invalid API key", 403: "Model access denied", 429: "Rate limit or API credit limit reached"}.get(status)
+        if detail is None:
+            detail = str(e) if isinstance(e, ValueError) else type(e).__name__
+        result.warnings.insert(0, f"AI prediction unavailable for {provider} / {model} ({detail}). "
                                   "Showing keyword matches on file paths instead.")
+        result.provider, result.model = provider, model
         return result
 
 
@@ -80,28 +101,61 @@ class OffTopic(ValueError):
     pass
 
 
-def _predict_llm(description, candidates, readme, client, model, source="ai"):
+def _predict_llm(description, candidates, readme, client, model, source="ai", provider="openai"):
     if client is None:
-        from openai import OpenAI
-        client = OpenAI()  # reads OPENAI_API_KEY
-    model = model or os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+        key_name = KEY_NAMES[provider]
+        if not os.getenv(key_name):
+            raise ValueError(f"Set {key_name} in the project .env")
+        if provider == "claude":
+            from anthropic import Anthropic
+            client = Anthropic(timeout=45.0, max_retries=1)
+        else:
+            from openai import OpenAI
+            client = OpenAI(timeout=45.0, max_retries=1)
     user = (f"Repository docs:\n<docs>\n{readme}\n</docs>\n\n" if readme else "") + \
         "File list:\n" + "\n".join(candidates) + f"\n\nPlanned change:\n{description}"
-    resp = client.chat.completions.create(
-        model=model,
-        temperature=0,
-        response_format={"type": "json_object"},
-        messages=[{"role": "system", "content": SYSTEM_PROMPT}, {"role": "user", "content": user}],
-    )
-    data = json.loads(resp.choices[0].message.content)
+    if len(user) + len(SYSTEM_PROMPT) > MAX_INPUT_CHARS:
+        raise ValueError("Input exceeds the analysis size limit")
+    if provider == "claude" and source != "mock":
+        resp = client.messages.create(
+            model=model, max_tokens=4096, thinking={"type": "adaptive"},
+            output_config={"effort": "low"},
+            system=SYSTEM_PROMPT,
+            messages=[{"role": "user", "content": user}],
+        )
+        if resp.stop_reason != "end_turn":
+            raise ValueError("Claude response was incomplete")
+        raw = "".join(block.text for block in resp.content if block.type == "text")
+    else:
+        resp = client.chat.completions.create(
+            model=model, max_completion_tokens=4096,
+            **({"reasoning_effort": "none"} if model == "gpt-6-luna" else {}),
+            response_format={"type": "json_object"},
+            messages=[{"role": "system", "content": SYSTEM_PROMPT}, {"role": "user", "content": user}],
+        )
+        if getattr(resp.choices[0], "finish_reason", "stop") != "stop":
+            raise ValueError("OpenAI response was incomplete")
+        raw = resp.choices[0].message.content
+    raw = re.sub(r"^```(?:json)?\s*|\s*```$", "", raw.strip())
+    data = json.loads(raw)
+    if not isinstance(data, dict) or not isinstance(data.get("off_topic"), bool) or not isinstance(data.get("files"), list):
+        raise ValueError("Invalid prediction JSON structure")
     if data.get("off_topic"):
         raise OffTopic("This does not look like a change to this repository. "
                        "Try describing the feature or bug fix you plan to make.")
     known, preds, invented = set(candidates), [], []
     for item in data.get("files", [])[:MAX_FILES]:
-        path = str(item.get("path", "")).strip().lstrip("./")
+        if not isinstance(item, dict):
+            raise ValueError("Invalid file prediction")
+        path = str(item.get("path", "")).strip()
+        if path.startswith("./"):
+            path = path[2:]
+        if any(p.path == path for p in preds):
+            continue
         if path in known:
             conf = min(max(float(item.get("confidence", 0.5)), 0.0), 1.0)
+            if not math.isfinite(conf):
+                raise ValueError("Invalid confidence")
             preds.append(Prediction(path, str(item.get("reason", "")), conf, source))
         elif path:
             invented.append(path)
@@ -111,7 +165,7 @@ def _predict_llm(description, candidates, readme, client, model, source="ai"):
                         + ", ".join(invented[:5]))
     if not preds:
         raise ValueError("AI returned no usable file paths")
-    return PredictResult(preds, source, warnings)
+    return PredictResult(preds, source, warnings, provider if source == "ai" else "", model if source == "ai" else "")
 
 
 def predict_keywords(description, files, limit=10):

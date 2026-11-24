@@ -5,9 +5,11 @@ from pathlib import Path, PurePosixPath
 import streamlit as st
 from dotenv import load_dotenv
 
-from impactmap import github, repo_scan
+import os
+
+from impactmap import github, repo_scan, mock
 from impactmap.analyze import analyze
-from impactmap.predictor import OffTopic
+from impactmap.predictor import OffTopic, resolve_model, KEY_NAMES
 
 load_dotenv(Path(__file__).resolve().parent / ".env")
 
@@ -156,19 +158,39 @@ st.caption(f"{len(prs)} open PRs loaded as in-flight work." if prs else
 with st.form("describe", border=False):
     description = st.text_area("What do you plan to change?",
                                placeholder="e.g. Add password reset by email to the login page")
-    submitted = st.form_submit_button("Analyze", type="primary")
+    button_col, model_col = st.columns([1, 1.25], width=220, vertical_alignment="center")
+    try:
+        default_provider, _ = resolve_model()
+    except ValueError:
+        default_provider = "openai"
+        st.warning("Invalid AI_PROVIDER configuration. Use openai or claude; defaulting to OpenAI.")
+    provider = model_col.selectbox("Model", ["openai", "claude"],
+                                   index=["openai", "claude"].index(default_provider),
+                                   format_func=lambda p: "OpenAI" if p == "openai" else "Claude",
+                                   disabled=mock.enabled(), key="provider", label_visibility="collapsed")
+    submitted = button_col.form_submit_button("Analyze", type="primary")
+    if mock.enabled():
+        st.caption("MOCK mode: fixed sample data; no model API is called. Set IMPACTMAP_MOCK=0 to use AI.")
 
 if submitted:
+    provider, model = resolve_model(provider)
+    if not mock.enabled() and not os.getenv(KEY_NAMES[provider]):
+        st.error(f"Set {KEY_NAMES[provider]} in the project root .env, then restart Streamlit.")
+        st.stop()
     try:
         with st.spinner("Asking the AI and reading git history..."):
-            report = analyze(repo, description, me=me, base=base, days=int(days), prs=prs)
+            report = analyze(repo, description, me=me, base=base, days=int(days), prs=prs, provider=provider, model=model)
     except (OffTopic, ValueError, RuntimeError) as e:
         st.error(str(e))
         st.stop()
 
-    for w in repo_warnings + report.warnings:
+    st.session_state["analysis_result"] = (repo_input, report, repo_warnings)
+
+if "analysis_result" in st.session_state and st.session_state["analysis_result"][0] == repo_input:
+    _, report, saved_warnings = st.session_state["analysis_result"]
+    for w in saved_warnings + report.warnings:
         st.warning(w)
-    label = {"ai": "AI (OpenAI)", "mock": "MOCK data (AI not called)"}.get(
+    label = {"ai": f"AI ({report.provider} · {report.model})", "mock": "MOCK data (AI not called)"}.get(
         report.source, "keyword matching (not AI)")
     st.info(f"Predicted files come from **{label}**. They are guesses: check them before acting.")
 
