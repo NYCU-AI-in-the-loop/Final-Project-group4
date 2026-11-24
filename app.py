@@ -151,10 +151,14 @@ days = col_days.number_input("Recent-author window (days)", 7, 365, 90)
 st.caption(f"{len(prs)} open PRs loaded as in-flight work." if prs else
            "Local path: run `git fetch` there first so teammates' branches are up to date.")
 
-description = st.text_area("What do you plan to change?",
-                           placeholder="e.g. Add password reset by email to the login page")
+# A form so that Cmd/Ctrl+Enter in the text area runs the analysis; outside a form it only
+# applies the text and the button is not clicked.
+with st.form("describe", border=False):
+    description = st.text_area("What do you plan to change?",
+                               placeholder="e.g. Add password reset by email to the login page")
+    submitted = st.form_submit_button("Analyze", type="primary")
 
-if st.button("Analyze", type="primary"):
+if submitted:
     try:
         with st.spinner("Asking the AI and reading git history..."):
             report = analyze(repo, description, me=me, base=base, days=int(days), prs=prs)
