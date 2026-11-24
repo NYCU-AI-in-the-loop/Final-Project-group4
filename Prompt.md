@@ -123,3 +123,13 @@ Checked: tests pass; app starts headless in mock mode.
 
 **Kept / changed:** kept the AI's module and tests. On the demo repo every run showed a yellow "doc over size limit" warning for CONTRIBUTING.md; changed to an info field (`context_skipped`), since leaving out a low-priority doc is expected.
 **Checked:** 49 tests pass (41 old + 8 new). Demo repo: 4 docs found, 3 sent; input 2,731 → 4,293 tokens (gpt-4o-mini tokenizer). CLI and Streamlit (headless, mock mode) run without errors.
+
+---
+
+## 2026-11-24 — Cmd+Enter runs the analysis `UI`
+
+**Who:** Hans · Claude Code, Claude Opus 5.5 · branch `fix/cmd-enter-submits`
+
+"I found a problem where the UI hints: cmd+enter to submit, but it did not work properly. Am I misunderstanding it, or is it a real bug?"
+→ AI found the hint actually says "Press ⌘+Enter to apply": outside a form it only applies the text and does not click Analyze (Streamlit 1.67 shows "submit form" only inside `st.form`). Wrapped the description box and Analyze button in a borderless `st.form`.
+Checked: 49 tests pass; headless AppTest in mock mode: submitting the form renders the results with no errors.
