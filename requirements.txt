@@ -1,5 +1,5 @@
 openai>=1.40
 python-dotenv>=1.0
-streamlit>=1.36
+streamlit>=1.67
 pytest>=8
 anthropic>=0.86

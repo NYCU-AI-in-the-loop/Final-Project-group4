@@ -133,3 +133,21 @@ Checked: tests pass; app starts headless in mock mode.
 "I found a problem where the UI hints: cmd+enter to submit, but it did not work properly. Am I misunderstanding it, or is it a real bug?"
 → AI found the hint actually says "Press ⌘+Enter to apply": outside a form it only applies the text and does not click Analyze (Streamlit 1.67 shows "submit form" only inside `st.form`). Wrapped the description box and Analyze button in a borderless `st.form`.
 Checked: 49 tests pass; headless AppTest in mock mode: submitting the form renders the results with no errors.
+
+
+---
+
+## 2026-11-24 — Missing API key guidance and model availability `new feature`
+
+**Tool / model:** Codex, GPT-6 · **Branch:** `feat/missing-api-key-warning` · **Related:** DECISIONS.md 2026-11-24 (API key availability)
+
+### Prompts (original wording)
+
+1. "請pull最新的main，並且重新開一個分支，我這次要實作的功能是，當沒有填寫.env時，前端要顯示miss api key等字樣"
+2. "如果剛剛已經有建立新的分支，繼續修改就好"
+3. "如果openai或是claude只要其中一個有就可以，miss的可以在下拉選單後面()寫出，那如果兩個都沒有，分析按鈕就要不能按"
+4. "請根據這次所有的改動更新所有應該要更新的文件"
+
+**Kept / changed:** Kept missing-key setup guidance and the submission guard. Changed the initial warning for every absent key to a warning only when both are absent; otherwise show `(Missing API key)` beside the unavailable provider. The current implementation uses a custom dropdown that disables unavailable options, selects an available provider initially, and disables Analyze when neither key is configured. Mock mode remains usable without keys. Updated README, `.env.example`, and the decision log to match, including the Streamlit 1.67 minimum and the distinction between UI prerequisites and CLI fallback.
+
+**Validation scope:** Automated tests cover absent/empty/whitespace keys, either provider configured alone, both configured, disabled dropdown-option data, Analyze availability, setup guidance before a repository-loading failure, and mock mode. Streamlit AppTest inspects component data and simulated selection state; it does not establish browser rendering or native dropdown interaction correctness. Tests use simulated providers and do not call paid model APIs.
