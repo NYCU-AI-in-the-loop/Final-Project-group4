@@ -159,7 +159,11 @@ with st.form("describe", border=False):
     description = st.text_area("What do you plan to change?",
                                placeholder="e.g. Add password reset by email to the login page")
     button_col, model_col = st.columns([1, 1.25], width=220, vertical_alignment="center")
-    default_provider, _ = resolve_model()
+    try:
+        default_provider, _ = resolve_model()
+    except ValueError:
+        default_provider = "openai"
+        st.warning("Invalid AI_PROVIDER configuration. Use openai or claude; defaulting to OpenAI.")
     provider = model_col.selectbox("Model", ["openai", "claude"],
                                    index=["openai", "claude"].index(default_provider),
                                    format_func=lambda p: "OpenAI" if p == "openai" else "Claude",

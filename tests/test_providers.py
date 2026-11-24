@@ -137,3 +137,39 @@ def test_ui_missing_key_and_mock(monkeypatch):
     app.run()
     assert app.selectbox[0].disabled
     assert any('MOCK mode' in c.value for c in app.caption)
+
+
+@pytest.mark.parametrize('configured_provider', ['gemini', '', '   '])
+def test_ui_invalid_provider_defaults_to_openai(monkeypatch, configured_provider):
+    import dotenv
+    import importlib
+    from impactmap import github
+    from streamlit.testing.v1 import AppTest
+
+    monkeypatch.setattr(dotenv, 'load_dotenv', lambda *a, **k: None)
+    monkeypatch.setattr(github, 'prepare', lambda url: ('.', [], []))
+    monkeypatch.setenv('AI_PROVIDER', configured_provider)
+    monkeypatch.setenv('OPENAI_API_KEY', 'test-placeholder')
+    monkeypatch.setenv('ANTHROPIC_API_KEY', 'test-placeholder')
+    module = importlib.import_module('impactmap.analyze')
+    calls = []
+
+    def fake_analyze(*args, **kwargs):
+        calls.append(kwargs['provider'])
+        return module.Report([], [], [], 'ai', provider=kwargs['provider'], model=kwargs['model'])
+
+    monkeypatch.setattr(module, 'analyze', fake_analyze)
+    app = AppTest.from_file('../app.py').run()
+    assert not app.exception
+    assert app.selectbox[0].value == 'openai'
+    assert any('Invalid AI_PROVIDER' in w.value for w in app.warning)
+
+    app.text_area[0].input('Update auth flow')
+    app.button[0].click().run()
+    assert not app.exception
+    assert calls == ['openai']
+
+    app.selectbox[0].select('claude')
+    app.button[0].click().run()
+    assert not app.exception
+    assert calls == ['openai', 'claude']
