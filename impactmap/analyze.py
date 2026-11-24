@@ -1,7 +1,7 @@
 """Combine the AI prediction with git facts into a ranked impact report."""
 from dataclasses import dataclass, field
 
-from . import repo_scan, safety
+from . import context, repo_scan
 from .predictor import predict
 
 RISK_ORDER = {"high": 0, "medium": 1, "low": 2}
@@ -28,16 +28,17 @@ class Report:
     import_edges: list   # [(importer, imported)] among shown files
     source: str
     warnings: list = field(default_factory=list)
+    context_files: list = field(default_factory=list)    # repo docs sent to the AI
+    context_skipped: list = field(default_factory=list)  # repo docs left out (size limit)
 
 
 def analyze(repo, description, me="", base=None, days=90, predictor=predict, prs=()):
     """`prs`: open PRs from github.prepare(); their refs are named pr/<number>."""
     base = base or repo_scan.default_base(repo)
     files = repo_scan.list_files(repo)
-    readme_path = next((f for f in files if f.lower() == "readme.md"), None)
-    readme, context_warnings = safety.read_for_llm(repo, readme_path) if readme_path else ("", [])
+    docs = context.build(repo, files)
 
-    result = predictor(description, files, readme=readme)
+    result = predictor(description, files, readme=docs.text)
     graph = repo_scan.import_graph(repo, files)
     authors = repo_scan.recent_authors(repo, days)
     rules = repo_scan.read_codeowners(repo)
@@ -74,4 +75,5 @@ def analyze(repo, description, me="", base=None, days=90, predictor=predict, prs
 
     ordered = sorted(rows.values(), key=lambda r: (RISK_ORDER[r.risk], -r.confidence, r.path))
     edges = [(a, b) for a in rows for b in graph.get(a, ()) if b in rows]
-    return Report(ordered, branches, edges, result.source, context_warnings + result.warnings)
+    return Report(ordered, branches, edges, result.source, docs.warnings + result.warnings,
+                  docs.used, docs.skipped)

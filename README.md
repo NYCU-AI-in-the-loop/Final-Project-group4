@@ -37,5 +37,6 @@ the results page without an API key: the AI step returns a fixed sample, everyth
 - `impactmap/predictor.py`: AI step (OpenAI, JSON output), keyword fallback, input checks
 - `impactmap/analyze.py`: combines both into a ranked report
 - `impactmap/github.py`: clone a GitHub URL and fetch open PR heads
+- `impactmap/context.py`: repo docs for the AI (README/AGENTS.md/CLAUDE.md... at the root and one level down, cleaned and size-capped)
 - `impactmap/safety.py`: keeps secrets out of what is sent to the AI (skips `.env`/key files, hides key-like strings)
 - `app.py` Streamlit UI, `impactmap/cli.py` CLI

@@ -13,7 +13,7 @@ as a local `.env` are not visible to begin with.
 import re
 from pathlib import PurePosixPath
 
-from .repo_scan import git
+from .repo_scan import read_blobs
 
 PLACEHOLDER = "[REDACTED]"
 
@@ -73,6 +73,7 @@ def read_for_llm(repo, path, commit="HEAD"):
     """
     if is_sensitive(path):
         return "", [f"Skipped {path}: looks like a secrets file, its content is not sent to the AI."]
-    text, n = redact(git(repo, "show", f"{commit}:{path}"))
+    # read_blobs decodes as UTF-8 whatever the OS locale is (cp950 on many Windows setups).
+    text, n = redact(read_blobs(repo, commit, [path]).get(path, ""))
     warnings = [f"Hid {n} secret-looking value(s) in {path} before sending it to the AI."] if n else []
     return text, warnings

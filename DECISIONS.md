@@ -27,3 +27,11 @@
 ## 2026-11-24 — Settings under the title, no sidebar
 **What:** The repo, name, base-branch and day-window inputs move from the sidebar to the main page, between the title caption and the description box (repo on its own row, the other three side by side).
 **Why:** After an analysis, opening or closing the sidebar lagged for a long time, probably because the browser has to lay out the large results (table and graph) again at the new width. Without a sidebar there is nothing to toggle, and the settings sit next to the description, so first-time reviewers don't miss them.
+
+## 2026-11-24 — Send root and sub-directory docs to the AI, not just the README
+**What:** `impactmap/context.py` sends README/AGENTS.md/CLAUDE.md/ARCHITECTURE.md/CONTRIBUTING.md from the root and one level down, cleaned and capped (4,000 chars each, 12,000 total), inside `<docs>` marked as data, not instructions.
+**Why:** Monorepos describe their layout in `backend/README.md`, `frontend/README.md`. Demo repo: 3 docs sent instead of 3,000 chars of the root README (2,731 → 4,293 input tokens). Led by bbbguji.
+
+## 2026-11-24 — Code steward: bbbguji for PR #10
+**What:** bbbguji was code steward for PR #10 (kiki, settings under the title): ran it locally in mock mode with pytest (41 passed), approved with one non-blocking suggestion (the long "Your name…" label wraps and misaligns the three inputs; shorten it and move the note into `help=`), and merged it.
+**Handoff:** the label suggestion is left as a follow-up for kiki.
