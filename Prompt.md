@@ -111,3 +111,15 @@ Checked: hover + copy tested in Chrome (light/dark) in mock mode.
 "…there would be a long delay while opening and closing the side bar after analyses… so I think remove it would be a better choice" (reason, added to DECISIONS.md)
 → AI asked which heading (page title vs. graph subheader), layout, expander or not; agreed: page title, repo full width + 3 columns, all visible.
 Checked: tests pass; app starts headless in mock mode.
+
+---
+
+## 2026-11-24 — Root and sub-directory docs as AI context `new feature`
+
+**Who:** bbbguji · **Tool / model:** Claude Code, Claude Opus 5.5 · branch `feat/repo-docs-context` · **Related:** DECISIONS.md 2026-11-24 (docs context)
+
+1. "PR已經merge了，開始做PR2。先說明之前程式是怎麼處理的，現在有修改哪一些東西、功能" → `impactmap/context.py` (find, clean, cap docs), wired into `analyze.py`; `predictor.py` drops the 3,000-char README cut and wraps docs in `<docs>`; CLI prints which docs were used; `safety.read_for_llm` now decodes as UTF-8 regardless of OS locale.
+2. "再次確認pr2的內容有無錯誤" → re-check found two gaps: a doc containing `</docs>` could close the docs block early (prompt injection), and docs under `vendor/`/`node_modules/` would be sent. Fixed both + tests.
+
+**Kept / changed:** kept the AI's module and tests. On the demo repo every run showed a yellow "doc over size limit" warning for CONTRIBUTING.md; changed to an info field (`context_skipped`), since leaving out a low-priority doc is expected.
+**Checked:** 49 tests pass (41 old + 8 new). Demo repo: 4 docs found, 3 sent; input 2,731 → 4,293 tokens (gpt-4o-mini tokenizer). CLI and Streamlit (headless, mock mode) run without errors.
