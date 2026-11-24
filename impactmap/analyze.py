@@ -29,16 +29,19 @@ class Report:
     source: str
     warnings: list = field(default_factory=list)
     context_files: list = field(default_factory=list)    # repo docs sent to the AI
+    provider: str = ""
+    model: str = ""
     context_skipped: list = field(default_factory=list)  # repo docs left out (size limit)
 
 
-def analyze(repo, description, me="", base=None, days=90, predictor=predict, prs=()):
+def analyze(repo, description, me="", base=None, days=90, predictor=predict, prs=(), provider=None, model=None):
     """`prs`: open PRs from github.prepare(); their refs are named pr/<number>."""
     base = base or repo_scan.default_base(repo)
     files = repo_scan.list_files(repo)
     docs = context.build(repo, files)
 
-    result = predictor(description, files, readme=docs.text)
+    options = {"provider": provider, "model": model} if provider is not None or model is not None else {}
+    result = predictor(description, files, readme=docs.text, **options)
     graph = repo_scan.import_graph(repo, files)
     authors = repo_scan.recent_authors(repo, days)
     rules = repo_scan.read_codeowners(repo)
@@ -76,4 +79,5 @@ def analyze(repo, description, me="", base=None, days=90, predictor=predict, prs
     ordered = sorted(rows.values(), key=lambda r: (RISK_ORDER[r.risk], -r.confidence, r.path))
     edges = [(a, b) for a in rows for b in graph.get(a, ()) if b in rows]
     return Report(ordered, branches, edges, result.source, docs.warnings + result.warnings,
-                  docs.used, docs.skipped)
+                  context_files=docs.used, context_skipped=docs.skipped,
+                  provider=result.provider, model=result.model)

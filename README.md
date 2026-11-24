@@ -10,7 +10,7 @@ teammates have unmerged branches on those files or edited them recently, includi
 
 ```bash
 uv venv && source .venv/bin/activate && uv pip install -r requirements.txt
-cp .env.example .env              # put OPENAI_API_KEY in it (optional: OPENAI_MODEL)
+# Edit the existing .env; for a new checkout only: cp .env.example .env
 streamlit run app.py              # UI
 python -m impactmap.cli "Add password reset by email" [--repo URL_or_path] [--me login]   # CLI
 python -m pytest -q tests         # tests
@@ -40,3 +40,49 @@ the results page without an API key: the AI step returns a fixed sample, everyth
 - `impactmap/context.py`: repo docs for the AI (README/AGENTS.md/CLAUDE.md... at the root and one level down, cleaned and size-capped)
 - `impactmap/safety.py`: keeps secrets out of what is sent to the AI (skips `.env`/key files, hides key-like strings)
 - `app.py` Streamlit UI, `impactmap/cli.py` CLI
+
+
+### OpenAI / Claude selection
+
+Edit `.env` at the project root (beside `app.py`). Preserve any existing keys:
+
+```dotenv
+AI_PROVIDER=openai
+OPENAI_API_KEY=your-openai-api-key
+OPENAI_MODEL=gpt-6-luna
+ANTHROPIC_API_KEY=your-anthropic-api-key
+ANTHROPIC_MODEL=claude-haiku-5-5
+IMPACTMAP_MOCK=0
+GITHUB_TOKEN=
+```
+
+Create OpenAI keys at https://platform.openai.com/api-keys and Claude keys in
+https://platform.claude.com/ under API Keys. Both accounts need API access/credits.
+Fill both keys to switch between providers, or only the key for the provider you use.
+`GITHUB_TOKEN` is optional for public-repository PR API requests; Git clone credentials
+are configured separately. Never commit `.env` (already gitignored).
+
+Install dependencies with `uv pip install -r requirements.txt`, then restart
+`streamlit run app.py` after editing `.env`. Existing shell environment variables take
+precedence over `.env`; update/unset those if settings appear unchanged.
+
+Select **Model** next to **Analyze**. Selection alone makes no API request. Analyze
+uses that selection, and results retain the provider/model that produced them.
+`AI_PROVIDER` sets the initial selection. The selected provider's model environment
+variable overrides its default. CLI options override environment settings:
+
+```bash
+python -m impactmap.cli "Add password reset" --provider claude
+python -m impactmap.cli "Add password reset" --provider openai --model gpt-6-luna
+```
+
+`IMPACTMAP_MOCK=1` disables the model selector and uses fixed sample predictions;
+it makes no model API calls. Set it to `0` for real AI. Git/PR conflict analysis,
+CODEOWNERS, recent editors, dependencies, tables and graphs work with either provider.
+
+Requests have a 60,000-character input ceiling, 4,096 output-token limit, 45-second
+SDK timeout and at most one SDK retry. Claude uses low adaptive reasoning; the default
+OpenAI model uses no reasoning. Truncated/invalid responses and API failures fall back
+to clearly labeled keyword matching, never to another provider or more expensive model.
+A missing selected key is shown before UI analysis. Model availability depends on your
+account. Automated tests use simulated API responses and do not incur API charges.

@@ -16,16 +16,18 @@ def main():
                     help="GitHub URL or local path")
     ap.add_argument("--me", default="")
     ap.add_argument("--base")
+    ap.add_argument("--provider", choices=["openai", "claude"])
+    ap.add_argument("--model", help="Override the selected provider model")
     ap.add_argument("description")
     args = ap.parse_args()
     repo, prs, warnings = args.repo, [], []
     if github.parse_url(args.repo):
         repo, prs, warnings = github.prepare(args.repo)
-    report = analyze(repo, args.description, me=args.me, base=args.base, prs=prs)
+    report = analyze(repo, args.description, me=args.me, base=args.base, prs=prs, provider=args.provider, model=args.model)
     report.warnings[:0] = warnings
     for w in report.warnings:
         print("WARNING:", w)
-    print(f"source: {report.source}")
+    print(f"source: {report.source}; provider: {report.provider}; model: {report.model}")
     skipped = f" (left out, size limit: {', '.join(report.context_skipped)})" if report.context_skipped else ""
     print("docs sent to the AI: " + (", ".join(report.context_files) or "none") + skipped)
     for r in report.rows:
