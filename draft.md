@@ -2,7 +2,10 @@
 ## Part 2 — Draft AI Usage Guidelines
 ### Section 1
 
-We will use Claude Code to generate an initial test skeleton for a new module, first-draft docstrings, API documentation, and test cases — a human always reviews the generated code and confirms it meets our coding standards before it's merged.
+We will use Claude Code to generate an initial test skeleton for a new module, first-draft docstrings, API documentation, and test cases.
+
+- **Author understands the change:** Before requesting review, the author must check the box confirming that they have read every changed line and can explain it without AI assistance.
+- **Checks are reported:** Every PR must complete the "How I checked it" section, reporting test status, before/after prompt test results when prompts are changed, and any additional manual checks.
 
 ## Section 2
 
@@ -10,7 +13,7 @@ Prompt log (Prompt.md) — every prompt that produces code, text, or a decision 
 
 DECISIONS.md — logs the reasoning, not a transcript. An entry goes here whenever a change is large enough to affect our approach, or an AI suggestion changes what actually ends up in the repo.
 
-PR description — always names whether AI was involved, in one sentence, and links to the relevant log entry.
+PR description — every PR must complete the "AI involvement" and "Prompt log" fields, specifying the AI tool, its contributions, and what a human changed or checked, or indicating "None" and "n/a" when applicable.
 
 AGENTS.md — separate from the above; documents new reusable prompting techniques/skills the team develops.
 
