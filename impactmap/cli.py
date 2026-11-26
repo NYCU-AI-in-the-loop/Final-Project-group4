@@ -1,5 +1,6 @@
 """Command-line version: python -m impactmap.cli "planned change" [--repo URL_or_path] """
 import argparse
+import sys
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -11,6 +12,8 @@ load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
 
 def main():
+    # Redirected output uses the OS encoding: print "?" for a name it lacks instead of crashing.
+    sys.stdout.reconfigure(errors="replace")
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--repo", default="https://github.com/fastapi/full-stack-fastapi-template",
                     help="GitHub URL or local path")
