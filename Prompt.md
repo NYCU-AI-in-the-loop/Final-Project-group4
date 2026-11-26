@@ -151,3 +151,14 @@ Checked: 49 tests pass; headless AppTest in mock mode: submitting the form rende
 **Kept / changed:** Kept missing-key setup guidance and the submission guard. Changed the initial warning for every absent key to a warning only when both are absent; otherwise show `(Missing API key)` beside the unavailable provider. The current implementation uses a custom dropdown that disables unavailable options, selects an available provider initially, and disables Analyze when neither key is configured. Mock mode remains usable without keys. Updated README, `.env.example`, and the decision log to match, including the Streamlit 1.67 minimum and the distinction between UI prerequisites and CLI fallback.
 
 **Validation scope:** Automated tests cover absent/empty/whitespace keys, either provider configured alone, both configured, disabled dropdown-option data, Analyze availability, setup guidance before a repository-loading failure, and mock mode. Streamlit AppTest inspects component data and simulated selection state; it does not establish browser rendering or native dropdown interaction correctness. Tests use simulated providers and do not call paid model APIs.
+
+---
+
+## 2026-11-26 — Git output crash on non-UTF-8 Windows (issue #21) `bug fix`
+
+**Who:** bbbguji · **Tool / model:** Claude Code, Claude Opus 5.5 · branch `fix/git-output-encoding` · **Related:** issues #21, #14 (Group 16, finding 1); DECISIONS.md 2026-11-26 (UTF-8 git output)
+
+1. "現在開始修這個問題一(已經發出issue了，在issue#21，之後發PR)。先說明之前程式是怎麼處理的，現在有修改哪一些東西、功能。之後請你在一次完整的檢查相關程式有無問題(確保不會再有bug)" → `git()` decodes as UTF-8 and forces git's path/log encoding; CLI no longer crashes on names the output encoding lacks; `tests/test_encoding.py`.
+
+**Kept / changed:** kept the fix proposed in #21. The check added two things it did not list: non-ASCII paths came back as `"\347\231..."`, and with `git()` alone fixed, `python -m impactmap.cli > out.txt` crashed on "é" under cp950.
+**Checked:** 77 tests pass (70 old + 7 new) with `PYTHONUTF8=0` (cp950) and `1`; 6 of the 7 new tests fail on the old code under cp950. Streamlit (headless, mock mode, cp950) crashed before and works now; demo repo results are unchanged.

@@ -10,8 +10,14 @@ from fnmatch import fnmatch
 from pathlib import PurePosixPath
 
 
+# Always UTF-8 from git, with real paths instead of "\347\231..." escapes, whatever the user's git config says.
+GIT_UTF8 = ("-c", "core.quotePath=false", "-c", "i18n.logOutputEncoding=UTF-8")
+
+
 def git(repo, *args):
-    r = subprocess.run(["git", "-C", str(repo), *args], capture_output=True, text=True)
+    # Not text=True: that decodes with the OS locale (cp950 on many Windows setups) and crashes.
+    r = subprocess.run(["git", "-C", str(repo), *GIT_UTF8, *args], capture_output=True,
+                       encoding="utf-8", errors="replace")
     if r.returncode != 0:
         raise RuntimeError(f"git {' '.join(args)} failed: {r.stderr.strip()}")
     return r.stdout
